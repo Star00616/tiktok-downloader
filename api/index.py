@@ -25,8 +25,7 @@ button{width:98%;padding:13px;background:#ff2a5f;color:#fff;border:none;border-r
 img{width:110px;height:150px;object-fit:cover;border-radius:8px}
 .btn{display:block;padding:12px;margin:8px 0;border-radius:8px;text-decoration:none;color:#fff;font-weight:bold;font-size:14px}
 .err{display:none;color:#ff6b81;margin-top:15px;font-size:14px}
-.ad-box{margin:18px auto;text-align:center;min-height:50px}
-.info{max-width:420px;margin-top:10px;color:#aaa;font-size:13px;line-height:1.6;text-align:left;background:#1a1a2e;padding:18px;border-radius:12px}
+.info{max-width:420px;margin-top:20px;color:#aaa;font-size:13px;line-height:1.6;text-align:left;background:#1a1a2e;padding:18px;border-radius:12px}
 .info h2{color:#fff;font-size:16px;margin:0 0 8px}
 </style></head><body>
 <div class="box">
@@ -39,18 +38,6 @@ img{width:110px;height:150px;object-fit:cover;border-radius:8px}
 <a id="h" class="btn" style="background:#0984e3">Download HD Quality (1080p)</a>
 <a id="m" class="btn" style="background:#6c5ce7">Download MP3 Audio</a>
 </div></div>
-<div class="ad-box">
-<script type="text/javascript">
-  atOptions = {
-    'key' : 'b55731fed23fdb904439d3d9133b0194',
-    'format' : 'iframe',
-    'height' : 50,
-    'width' : 320,
-    'params' : {}
-  };
-</script>
-<script type="text/javascript" src="https://bicea.org"></script>
-</div>
 <div class="info">
 <h2>How to Download TikTok Videos Without Watermark?</h2>
 <p>1. Open TikTok and copy the video link.<br>2. Paste the link in the box above and tap Get Video.<br>3. Choose Normal MP4, HD 1080p, or MP3 Audio to save directly to your phone.</p>
@@ -75,7 +62,7 @@ r.style.display='block';
 }catch(x){e.innerText='Error! Dobara try karen.';e.style.display='block';}
 b.innerText='Get Video';b.disabled=false;}
 </script>
-<script data-cfasync="false" src="https://bicea.org"></script>
+<script async data-cfasync="false" src="https://bicea.org"></script>
 </body></html>"""
 
 @app.route('/api/dl', methods=['POST'])
