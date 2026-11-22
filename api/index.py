@@ -36,6 +36,9 @@ HTML_PAGE = """
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
+    @app.route('/', methods=['GET', 'POST'])
+@app.route('/<path:path>', methods=['GET', 'POST'])
+def home(path=""):
     error = None
     if request.method == 'POST':
         url = request.form.get('url')
