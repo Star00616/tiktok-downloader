@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, render_template_string, Response
-import yt_dlp, requests, base64
+import yt_dlp, base64
 
 app = Flask(__name__)
 
@@ -71,13 +71,18 @@ def get_file():
     opts = {'quiet': True, 'no_warnings': True, 'format': fmt}
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
-        formats = [f for f in info.get('formats', []) if 'watermark' not in f.get('format_id', '').lower()]
+        formats = [f for f in info.get('formats', []) if 'watermark' not in f.get('format_id', '').lower() and f.get('vcodec') != 'none']
         target = formats[-1] if (t == 'v' and formats) else info
         media_url = target.get('url')
-        headers = target.get('http_headers', {})
-        r = requests.get(media_url, headers=headers, stream=True, timeout=25)
+        stream = ydl.urlopen(media_url)
+        def generate():
+            while True:
+                chunk = stream.read(65536)
+                if not chunk:
+                    break
+                yield chunk
         fn, ct = ("tiktok_audio.mp3", "audio/mpeg") if t == 'a' else ("tiktok_video.mp4", "video/mp4")
-        return Response(r.iter_content(65536), content_type=ct, headers={"Content-Disposition": f'attachment; filename="{fn}"'})
+        return Response(generate(), content_type=ct, headers={"Content-Disposition": f'attachment; filename="{fn}"'})
 
 @app.route('/', defaults={'p': ''})
 @app.route('/<path:p>')
