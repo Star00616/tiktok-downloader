@@ -69,12 +69,12 @@ def dl():
 def get_file():
     t = request.args.get('t', 'v')
     url = base64.urlsafe_b64decode(request.args.get('u', '').encode()).decode()
-    opts = {'quiet': True, 'no_warnings': True}
+    fmt = 'bestaudio/best' if t == 'a' else 'best[ext=mp4]/best'
+    opts = {'quiet': True, 'no_warnings': True, 'format': fmt}
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
         if t == 'a':
-            audios = [f for f in info.get('formats', []) if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
-            target = audios[-1] if audios else info
+            target = info
             fn, ct = "tiktok_audio.mp3", "audio/mpeg"
         else:
             vids = [f for f in info.get('formats', []) if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and 'watermark' not in f.get('format_id', '').lower()]
@@ -83,7 +83,7 @@ def get_file():
                 target = vids[-1] if vids else info
                 fn = "tiktok_HD.mp4"
             else:
-                target = vids[0] if vids else info
+                target = vids[-2] if len(vids) > 1 else (vids[-1] if vids else info)
                 fn = "tiktok_normal.mp4"
             ct = "video/mp4"
         stream = ydl.urlopen(target.get('url'))
