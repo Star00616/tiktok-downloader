@@ -1,5 +1,4 @@
-from flask import Flask, request, render_template_string
-import requests
+from flask import Flask, render_template_string
 
 app = Flask(__name__)
 
@@ -55,7 +54,9 @@ HTML_PAGE = """
             font-weight: bold;
             cursor: pointer;
         }
+        .main-btn:disabled { opacity: 0.6; }
         .result-card {
+            display: none;
             margin-top: 25px;
             background: rgba(0, 0, 0, 0.35);
             padding: 15px;
@@ -92,13 +93,13 @@ HTML_PAGE = """
         .btn-hd { background: #0984e3; }
         .btn-mp3 { background: #6c5ce7; }
         .error {
+            display: none;
             background: rgba(255, 71, 87, 0.2);
             color: #ff6b81;
             padding: 10px;
             border-radius: 8px;
             margin-top: 15px;
             font-size: 14px;
-            word-wrap: break-word;
         }
     </style>
 </head>
@@ -106,34 +107,81 @@ HTML_PAGE = """
     <div class="container">
         <h1>TikTok Downloader</h1>
         <p class="subtitle">HD Video (No Watermark) & MP3 Audio</p>
-        <form method="POST">
-            <input type="text" name="url" placeholder="TikTok video link paste karen..." required>
-            <button type="submit" class="main-btn">Get Video</button>
-        </form>
+        
+        <input type="text" id="videoUrl" placeholder="TikTok video link paste karen...">
+        <button class="main-btn" id="getBtn" onclick="fetchVideo()">Get Video</button>
 
-        {% if error %}
-            <div class="error">{{ error }}</div>
-        {% endif %}
+        <div class="error" id="errorBox"></div>
 
-        {% if data %}
-            <div class="result-card">
-                <img src="{{ data.cover }}" alt="Thumbnail" class="thumb">
-                <p class="title">{{ data.title or 'TikTok Video' }}</p>
-                
-                {% if data.play %}
-                    <a href="{{ data.play }}" target="_blank" class="dl-btn btn-sd">Download Without Watermark</a>
-                {% endif %}
-                
-                {% if data.hdplay %}
-                    <a href="{{ data.hdplay }}" target="_blank" class="dl-btn btn-hd">Download HD Quality</a>
-                {% endif %}
-                
-                {% if data.music %}
-                    <a href="{{ data.music }}" target="_blank" class="dl-btn btn-mp3">Download MP3 Audio</a>
-                {% endif %}
-            </div>
-        {% endif %}
+        <div class="result-card" id="resultBox">
+            <img id="thumbImg" src="" alt="Thumbnail" class="thumb">
+            <p class="title" id="videoTitle"></p>
+            <a id="sdLink" href="#" target="_blank" class="dl-btn btn-sd">Download Without Watermark</a>
+            <a id="hdLink" href="#" target="_blank" class="dl-btn btn-hd">Download HD Quality</a>
+            <a id="mp3Link" href="#" target="_blank" class="dl-btn btn-mp3">Download MP3 Audio</a>
+        </div>
     </div>
+
+    <script>
+        async function fetchVideo() {
+            const url = document.getElementById('videoUrl').value.trim();
+            const btn = document.getElementById('getBtn');
+            const errorBox = document.getElementById('errorBox');
+            const resultBox = document.getElementById('resultBox');
+
+            errorBox.style.display = 'none';
+            resultBox.style.display = 'none';
+
+            if (!url) {
+                errorBox.innerText = "Pehle TikTok video ka link paste karen!";
+                errorBox.style.display = 'block';
+                return;
+            }
+
+            btn.innerText = "Loading...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`https://tikwm.com{encodeURIComponent(url)}&hd=1`);
+                const json = await res.json();
+
+                if (json.code === 0 && json.data) {
+                    const data = json.data;
+                    document.getElementById('thumbImg').src = data.cover;
+                    document.getElementById('videoTitle').innerText = data.title || "TikTok Video";
+                    
+                    document.getElementById('sdLink').href = data.play;
+                    
+                    const hdBtn = document.getElementById('hdLink');
+                    if (data.hdplay) {
+                        hdBtn.href = data.hdplay;
+                        hdBtn.style.display = 'block';
+                    } else {
+                        hdBtn.style.display = 'none';
+                    }
+
+                    const mp3Btn = document.getElementById('mp3Link');
+                    if (data.music) {
+                        mp3Btn.href = data.music;
+                        mp3Btn.style.display = 'block';
+                    } else {
+                        mp3Btn.style.display = 'none';
+                    }
+
+                    resultBox.style.display = 'block';
+                } else {
+                    errorBox.innerText = "Video nahi mili. Sahi TikTok link check karen.";
+                    errorBox.style.display = 'block';
+                }
+            } catch (err) {
+                errorBox.innerText = "Network error. Internet check karen ya dobara koshish karen.";
+                errorBox.style.display = 'block';
+            } finally {
+                btn.innerText = "Get Video";
+                btn.disabled = false;
+            }
+        }
+    </script>
 </body>
 </html>
 """
@@ -141,28 +189,5 @@ HTML_PAGE = """
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/<path:path>', methods=['GET', 'POST'])
 def home(path=""):
-    error = None
-    data = None
-    if request.method == 'POST':
-        url = request.form.get('url', '').strip()
-        if url:
-            try:
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'application/json'
-                }
-                response = requests.post(
-                    "https://tikwm.com",
-                    data={'url': url, 'hd': 1},
-                    headers=headers,
-                    timeout=15
-                ).json()
-                
-                if response.get('code') == 0 and response.get('data'):
-                    data = response['data']
-                else:
-                    error = response.get('msg') or "Video nahi mili. Sahi TikTok link paste karen."
-            except Exception as e:
-                error = f"Error: {str(e)}"
-    return render_template_string(HTML_PAGE, error=error, data=data)
+    return render_template_string(HTML_PAGE)
     
