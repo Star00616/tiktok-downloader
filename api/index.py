@@ -1,5 +1,5 @@
-from flask import Flask, request, jsonify, render_template_string, Response
-import requests, re, json, base64
+from flask import Flask, request, jsonify, render_template_string
+import requests
 
 app = Flask(__name__)
 
@@ -23,6 +23,7 @@ img{width:110px;height:150px;object-fit:cover;border-radius:8px}
 <div class="err" id="e"></div>
 <div class="res" id="r"><img id="im"><p id="t"></p>
 <a id="v" class="btn" style="background:#00b894">Download Video (No Watermark)</a>
+<a id="h" class="btn" style="background:#0984e3">Download HD Video</a>
 <a id="m" class="btn" style="background:#6c5ce7">Download MP3 Audio</a>
 </div></div><script>
 async function go(){
@@ -37,6 +38,8 @@ if(d.ok){
 document.getElementById('im').src=d.cover||'';
 document.getElementById('t').innerText=d.title||'TikTok Video';
 document.getElementById('v').href=d.play;
+let h=document.getElementById('h');
+if(d.hd){h.href=d.hd;h.style.display='block';}else{h.style.display='none';}
 let m=document.getElementById('m');
 if(d.music){m.href=d.music;m.style.display='block';}else{m.style.display='none';}
 r.style.display='block';
@@ -45,57 +48,63 @@ r.style.display='block';
 b.innerText='Get Video';b.disabled=false;}
 </script></body></html>"""
 
-UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36'
-
-def enc(s):
-    return base64.urlsafe_b64encode(s.encode()).decode()
-
-def dec(s):
-    return base64.urlsafe_b64decode(s.encode()).decode()
-
 @app.route('/api/dl', methods=['POST'])
 def dl():
     url = (request.get_json() or {}).get('url', '').strip()
-    s = requests.Session()
-    s.headers.update({'User-Agent': UA, 'Referer': 'https://tiktok.com'})
+    if not url:
+        return jsonify({'ok': False, 'err': 'Link khali hai'})
+
+    # Engine 1: Lovetik API (Works reliably on Vercel & gives direct CDN links)
     try:
-        full = s.get(url, allow_redirects=True, timeout=10).url.split('?')
+        lt = requests.post(
+            "https://lovetik.com",
+            data={'query': url},
+            headers={'User-Agent': 'Mozilla/5.0', 'X-Requested-With': 'XMLHttpRequest'},
+            timeout=12
+        ).json()
+        if lt.get('status') == 'ok' and lt.get('links'):
+            links = lt['links']
+            sd = next((x['a'] for x in links if 'NO WATERMARK' in x.get('t', '').upper() and 'HD' not in x.get('t', '').upper()), links[0]['a'])
+            hd = next((x['a'] for x in links if 'HD' in x.get('t', '').upper()), None)
+            mp3 = next((x['a'] for x in links if 'MP3' in x.get('t', '').upper()), None)
+            return jsonify({
+                'ok': True,
+                'title': lt.get('desc', 'TikTok Video'),
+                'cover': lt.get('cover'),
+                'play': sd,
+                'hd': hd,
+                'music': mp3
+            })
     except Exception:
-        full = url
+        pass
+
+    # Engine 2: TikWM API
     try:
-        tw = requests.post("https://tikwm.com", data={'url': full, 'hd': 1}, headers={'User-Agent': UA}, timeout=10).json()
+        tw = requests.post(
+            "https://tikwm.com",
+            data={'url': url, 'count': 12, 'cursor': 0, 'web': 1, 'hd': 1},
+            headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://tikwm.com'},
+            timeout=12
+        ).json()
         if tw.get('code') == 0 and tw.get('data'):
             d = tw['data']
-            v = d.get('hdplay') or d.get('play')
-            return jsonify({'ok': True, 'title': d.get('title'), 'cover': d.get('cover'), 'play': v, 'music': d.get('music')})
+            base = "https://tikwm.com"
+            play = d.get('play', '')
+            hd = d.get('hdplay', '')
+            music = d.get('music', '')
+            cover = d.get('cover', '')
+            return jsonify({
+                'ok': True,
+                'title': d.get('title', 'TikTok Video'),
+                'cover': cover if cover.startswith('http') else base + cover,
+                'play': play if play.startswith('http') else base + play,
+                'hd': (hd if hd.startswith('http') else base + hd) if hd else None,
+                'music': (music if music.startswith('http') else base + music) if music else None
+            })
     except Exception:
         pass
-    try:
-        pg = s.get(full, timeout=12).text
-        m = re.search(r'<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">(.*?)</script>', pg)
-        if m:
-            item = json.loads(m.group(1))['__DEFAULT_SCOPE__']['webapp.video-detail']['itemInfo']['itemStruct']
-            v = item['video'].get('downloadAddr') or item['video'].get('playAddr')
-            mu = item.get('music', {}).get('playUrl')
-            ck = "; ".join([f"{k}={v}" for k, v in s.cookies.get_dict().items()])
-            if v:
-                return jsonify({
-                    'ok': True, 'title': item.get('desc'), 'cover': item['video']['cover'],
-                    'play': f"/api/st?u={enc(v)}&c={enc(ck)}&t=v",
-                    'music': f"/api/st?u={enc(mu)}&c={enc(ck)}&t=a" if mu else None
-                })
-    except Exception:
-        pass
-    return jsonify({'ok': False, 'err': 'Video nahi mili. Public link try karen.'})
 
-@app.route('/api/st')
-def st():
-    u, c, t = dec(request.args.get('u', '')), dec(request.args.get('c', '')), request.args.get('t', 'v')
-    r = requests.get(u, headers={'User-Agent': UA, 'Referer': 'https://tiktok.com', 'Cookie': c}, stream=True, timeout=20)
-    if r.status_code != 200:
-        return "Video server ne block kiya, dobara Get Video dabayen.", 400
-    fn, ct = ("audio.mp3", "audio/mpeg") if t == 'a' else ("video.mp4", "video/mp4")
-    return Response(r.iter_content(65536), content_type=ct, headers={"Content-Disposition": f'attachment; filename="{fn}"'})
+    return jsonify({'ok': False, 'err': 'Video nahi mili. Koi doosri public video try karen.'})
 
 @app.route('/', defaults={'p': ''})
 @app.route('/<path:p>')
