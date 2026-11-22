@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, render_template_string
+from flask import Flask, request, render_template_string
 import requests
 
 app = Flask(__name__)
@@ -9,25 +9,128 @@ HTML_PAGE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok Downloader</title>
+    <title>TikTok Video & MP3 Downloader</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #121212; color: white; padding: 20px; }
-        .box { background: #1e1e1e; padding: 25px; border-radius: 12px; max-width: 400px; margin: 40px auto; }
-        input { width: 90%; padding: 12px; margin: 15px 0; border: none; border-radius: 6px; font-size: 16px; }
-        button { width: 95%; padding: 12px; background: #fe2c55; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; }
-        .error { color: #ff6b6b; margin-top: 15px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 30px 20px;
+            border-radius: 18px;
+            width: 100%;
+            max-width: 440px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        h1 { font-size: 24px; margin-bottom: 8px; color: #ff2a5f; }
+        p.subtitle { font-size: 14px; color: #cccccc; margin-bottom: 20px; }
+        input {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            margin-bottom: 12px;
+            outline: none;
+        }
+        .main-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(90deg, #ff0050, #ff2a5f);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .result-card {
+            margin-top: 25px;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 15px;
+            border-radius: 12px;
+        }
+        .thumb {
+            width: 120px;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        .title {
+            font-size: 14px;
+            color: #eeeeee;
+            margin-bottom: 15px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .dl-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .btn-sd { background: #00b894; }
+        .btn-hd { background: #0984e3; }
+        .btn-mp3 { background: #6c5ce7; }
+        .error {
+            background: rgba(255, 71, 87, 0.2);
+            color: #ff6b81;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h2>TikTok Downloader</h2>
-        <p>Baghair Watermark Video Download Karen</p>
+    <div class="container">
+        <h1>TikTok Downloader</h1>
+        <p class="subtitle">HD Video (No Watermark) & MP3 Audio</p>
         <form method="POST">
-            <input type="text" name="url" placeholder="TikTok link yahan paste karen..." required>
-            <button type="submit">Download Video</button>
+            <input type="text" name="url" placeholder="TikTok video link paste karen..." required>
+            <button type="submit" class="main-btn">Get Video</button>
         </form>
+
         {% if error %}
-            <p class="error">{{ error }}</p>
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        {% if data %}
+            <div class="result-card">
+                <img src="{{ data.cover }}" alt="Thumbnail" class="thumb">
+                <p class="title">{{ data.title or 'TikTok Video' }}</p>
+                
+                {% if data.play %}
+                    <a href="{{ data.play }}" target="_blank" class="dl-btn btn-sd">Download Without Watermark</a>
+                {% endif %}
+                
+                {% if data.hdplay %}
+                    <a href="{{ data.hdplay }}" target="_blank" class="dl-btn btn-hd">Download HD Quality</a>
+                {% endif %}
+                
+                {% if data.music %}
+                    <a href="{{ data.music }}" target="_blank" class="dl-btn btn-mp3">Download MP3 Audio</a>
+                {% endif %}
+            </div>
         {% endif %}
     </div>
 </body>
@@ -38,18 +141,18 @@ HTML_PAGE = """
 @app.route('/<path:path>', methods=['GET', 'POST'])
 def home(path=""):
     error = None
+    data = None
     if request.method == 'POST':
         url = request.form.get('url')
         if url:
             try:
-                api_url = f"https://tikwm.com{url}"
+                api_url = f"https://tikwm.com{url}&hd=1"
                 response = requests.get(api_url).json()
                 if response.get('code') == 0:
-                    video_url = response['data']['play']
-                    return redirect(video_url)
+                    data = response['data']
                 else:
                     error = "Video nahi mili. Sahi TikTok link paste karen."
             except Exception:
                 error = "Server error. Dobara koshish karen."
-    return render_template_string(HTML_PAGE, error=error)
+    return render_template_string(HTML_PAGE, error=error, data=data)
     
