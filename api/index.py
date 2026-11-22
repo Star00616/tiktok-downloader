@@ -77,16 +77,20 @@ def get_file():
             target = info
             fn, ct = "tiktok_audio.mp3", "audio/mpeg"
         else:
-            vids = [f for f in info.get('formats', []) if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and 'watermark' not in f.get('format_id', '').lower()]
+            vids = [f for f in info.get('formats', []) if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and 'watermark' not in f.get('format_id', '').lower() and f.get('ext') == 'mp4']
             vids.sort(key=lambda x: (x.get('height') or 0, x.get('tbr') or 0))
+            best_vid = vids[-1] if vids else info
             if t == 'hd':
-                target = vids[-1] if vids else info
+                target = best_vid
                 fn = "tiktok_HD.mp4"
             else:
-                target = vids[-2] if len(vids) > 1 else (vids[-1] if vids else info)
+                target = vids[-2] if len(vids) > 1 else best_vid
                 fn = "tiktok_normal.mp4"
             ct = "video/mp4"
-        stream = ydl.urlopen(target.get('url'))
+        try:
+            stream = ydl.urlopen(target.get('url'))
+        except Exception:
+            stream = ydl.urlopen(best_vid.get('url'))
         def generate():
             while True:
                 chunk = stream.read(65536)
