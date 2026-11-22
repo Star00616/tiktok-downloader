@@ -35,8 +35,6 @@ HTML_PAGE = """
 """
 
 @app.route('/', methods=['GET', 'POST'])
-def home():
-    @app.route('/', methods=['GET', 'POST'])
 @app.route('/<path:path>', methods=['GET', 'POST'])
 def home(path=""):
     error = None
@@ -54,4 +52,4 @@ def home(path=""):
             except Exception:
                 error = "Server error. Dobara koshish karen."
     return render_template_string(HTML_PAGE, error=error)
-  
+    
