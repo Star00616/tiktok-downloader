@@ -11,6 +11,8 @@ HTML = """<!DOCTYPE html>
 <meta name="monetag" content="e3615afb273a76b34c74cd7d5d3e612e">
 <title>TikTok Video Downloader Without Watermark - HD 1080p & MP3</title>
 <meta name="description" content="Download TikTok videos without watermark in HD 1080p quality and convert TikTok to MP3 audio online for free. Fast, free, and no app required.">
+<meta name="keywords" content="tiktok downloader, tiktok video downloader without watermark, download tiktok hd, tiktok to mp3, save tiktok video">
+<meta name="robots" content="index, follow">
 <style>
 body{font-family:sans-serif;background:#121224;color:#fff;display:flex;flex-direction:column;align-items:center;padding:20px;margin:0}
 .box{background:#1e1e36;padding:25px;border-radius:16px;width:100%;max-width:420px;text-align:center;margin-top:20px;box-shadow:0 8px 25px rgba(0,0,0,0.4)}
@@ -22,6 +24,7 @@ img{width:110px;height:150px;object-fit:cover;border-radius:8px}
 .btn{display:block;padding:12px;margin:8px 0;border-radius:8px;text-decoration:none;color:#fff;font-weight:bold;font-size:14px}
 .err{display:none;color:#ff6b81;margin-top:15px;font-size:14px}
 .info{max-width:420px;margin-top:20px;color:#aaa;font-size:13px;line-height:1.6;text-align:left;background:#1a1a2e;padding:18px;border-radius:12px}
+.info h2{color:#fff;font-size:16px;margin:0 0 8px}
 </style></head><body>
 <div class="box">
 <h1>TikTok Downloader</h1><p>HD Video (No Watermark) & MP3</p>
@@ -33,6 +36,10 @@ img{width:110px;height:150px;object-fit:cover;border-radius:8px}
 <a id="h" class="btn" style="background:#0984e3">Download HD Quality (1080p)</a>
 <a id="m" class="btn" style="background:#6c5ce7">Download MP3 Audio</a>
 </div></div>
+<div class="info">
+<h2>How to Download TikTok Videos Without Watermark?</h2>
+<p>1. Open TikTok and copy the video link.<br>2. Paste the link in the box above and tap Get Video.<br>3. Choose Normal MP4, HD 1080p, or MP3 Audio to save directly to your phone.</p>
+</div>
 <script>
 async function go(){
 let u=document.getElementById('u').value.trim(),b=document.getElementById('b'),e=document.getElementById('e'),r=document.getElementById('r');
@@ -86,17 +93,25 @@ def get_file():
             target = info
             fn, ct = "tiktok_audio.mp3", "audio/mpeg"
         else:
-            vids = [f for f in info.get('formats', []) if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and 'watermark' not in f.get('format_id', '').lower() and f.get('ext'] == 'mp4']
+            vids = [f for f in info.get('formats', []) if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and 'watermark' not in f.get('format_id', '').lower() and f.get('ext') == 'mp4']
             vids.sort(key=lambda x: (x.get('height') or 0, x.get('tbr') or 0))
             best_vid = vids[-1] if vids else info
-            target = best_vid if t == 'hd' else (vids[-2] if len(vids) > 1 else best_vid)
-            fn = "tiktok_HD.mp4" if t == 'hd' else "tiktok_normal.mp4"
+            if t == 'hd':
+                target = best_vid
+                fn = "tiktok_HD.mp4"
+            else:
+                target = vids[-2] if len(vids) > 1 else best_vid
+                fn = "tiktok_normal.mp4"
             ct = "video/mp4"
-        stream = ydl.urlopen(target.get('url'))
+        try:
+            stream = ydl.urlopen(target.get('url'))
+        except Exception:
+            stream = ydl.urlopen(best_vid.get('url'))
         def generate():
             while True:
                 chunk = stream.read(65536)
-                if not chunk: break
+                if not chunk:
+                    break
                 yield chunk
         return Response(generate(), content_type=ct, headers={"Content-Disposition": f'attachment; filename="{fn}"'})
 
