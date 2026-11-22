@@ -1,4 +1,5 @@
-from flask import Flask, render_template_string
+from flask import Flask, request, jsonify, render_template_string
+import requests
 
 app = Flask(__name__)
 
@@ -100,6 +101,7 @@ HTML_PAGE = """
             border-radius: 8px;
             margin-top: 15px;
             font-size: 14px;
+            word-wrap: break-word;
         }
     </style>
 </head>
@@ -114,11 +116,11 @@ HTML_PAGE = """
         <div class="error" id="errorBox"></div>
 
         <div class="result-card" id="resultBox">
-            <img id="thumbImg" src="" alt="Thumbnail" class="thumb">
-            <p class="title" id="videoTitle"></p>
+            <img id="thumbImg" src="" alt="Thumbnail" class="thumb" style="display:none;">
+            <p class="title" id="videoTitle">TikTok Video Ready!</p>
             <a id="sdLink" href="#" target="_blank" class="dl-btn btn-sd">Download Without Watermark</a>
-            <a id="hdLink" href="#" target="_blank" class="dl-btn btn-hd">Download HD Quality</a>
-            <a id="mp3Link" href="#" target="_blank" class="dl-btn btn-mp3">Download MP3 Audio</a>
+            <a id="hdLink" href="#" target="_blank" class="dl-btn btn-hd" style="display:none;">Download HD Quality</a>
+            <a id="mp3Link" href="#" target="_blank" class="dl-btn btn-mp3" style="display:none;">Download MP3 Audio</a>
         </div>
     </div>
 
@@ -142,27 +144,36 @@ HTML_PAGE = """
             btn.disabled = true;
 
             try {
-                const res = await fetch(`https://tikwm.com{encodeURIComponent(url)}&hd=1`);
+                const res = await fetch('/api/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
                 const json = await res.json();
 
-                if (json.code === 0 && json.data) {
-                    const data = json.data;
-                    document.getElementById('thumbImg').src = data.cover;
-                    document.getElementById('videoTitle').innerText = data.title || "TikTok Video";
+                if (json.status === 'ok') {
+                    const thumb = document.getElementById('thumbImg');
+                    if (json.cover) {
+                        thumb.src = json.cover;
+                        thumb.style.display = 'inline-block';
+                    } else {
+                        thumb.style.display = 'none';
+                    }
                     
-                    document.getElementById('sdLink').href = data.play;
+                    document.getElementById('videoTitle').innerText = json.title || "TikTok Video";
+                    document.getElementById('sdLink').href = json.play;
                     
                     const hdBtn = document.getElementById('hdLink');
-                    if (data.hdplay) {
-                        hdBtn.href = data.hdplay;
+                    if (json.hdplay) {
+                        hdBtn.href = json.hdplay;
                         hdBtn.style.display = 'block';
                     } else {
                         hdBtn.style.display = 'none';
                     }
 
                     const mp3Btn = document.getElementById('mp3Link');
-                    if (data.music) {
-                        mp3Btn.href = data.music;
+                    if (json.music) {
+                        mp3Btn.href = json.music;
                         mp3Btn.style.display = 'block';
                     } else {
                         mp3Btn.style.display = 'none';
@@ -170,11 +181,11 @@ HTML_PAGE = """
 
                     resultBox.style.display = 'block';
                 } else {
-                    errorBox.innerText = "Video nahi mili. Sahi TikTok link check karen.";
+                    errorBox.innerText = json.error || "Video nahi mili. Link check karen.";
                     errorBox.style.display = 'block';
                 }
             } catch (err) {
-                errorBox.innerText = "Network error. Internet check karen ya dobara koshish karen.";
+                errorBox.innerText = "Server error. Dobara koshish karen.";
                 errorBox.style.display = 'block';
             } finally {
                 btn.innerText = "Get Video";
@@ -186,8 +197,58 @@ HTML_PAGE = """
 </html>
 """
 
-@app.route('/', methods=['GET', 'POST'])
-@app.route('/<path:path>', methods=['GET', 'POST'])
+@app.route('/api/download', methods=['POST'])
+def download_api():
+    req_data = request.get_json() or {}
+    url = req_data.get('url', '').strip()
+    if not url:
+        return jsonify({'status': 'error', 'error': 'Link khali hai'})
+
+    # Method 1: Cobalt API (Fastest & Reliable)
+    try:
+        cobalt_res = requests.post(
+            "https://cobalt.tools",
+            json={"url": url, "videoQuality": "1080"},
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            timeout=12
+        )
+        if cobalt_res.status_code == 200:
+            c_data = cobalt_res.json()
+            if c_data.get('url'):
+                return jsonify({
+                    'status': 'ok',
+                    'title': 'TikTok Video (No Watermark)',
+                    'play': c_data['url']
+                })
+    except Exception:
+        pass
+
+    # Method 2: TikWM Fallback with Session
+    try:
+        s = requests.Session()
+        s.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+            'Referer': 'https://tikwm.com',
+            'Origin': 'https://tikwm.com'
+        })
+        res = s.post("https://tikwm.comapi/", data={'url': url, 'hd': 1}, timeout=12).json()
+        if res.get('code') == 0 and res.get('data'):
+            d = res['data']
+            return jsonify({
+                'status': 'ok',
+                'title': d.get('title', 'TikTok Video'),
+                'cover': d.get('cover'),
+                'play': d.get('play'),
+                'hdplay': d.get('hdplay'),
+                'music': d.get('music')
+            })
+    except Exception:
+        pass
+
+    return jsonify({'status': 'error', 'error': 'Video fetch nahi ho saki. Doosra link try karen.'})
+
+@app.route('/', methods=['GET'])
+@app.route('/<path:path>', methods=['GET'])
 def home(path=""):
     return render_template_string(HTML_PAGE)
-    
+            
