@@ -39,18 +39,7 @@ img{width:110px;height:150px;object-fit:cover;border-radius:8px}
 <a id="h" class="btn" style="background:#0984e3">Download HD Quality (1080p)</a>
 <a id="m" class="btn" style="background:#6c5ce7">Download MP3 Audio</a>
 </div></div>
-<div class="ad-box">
-<script>
-  atOptions = {
-    'key' : 'b55731fed23fdb904439d3d9133b0194',
-    'format' : 'iframe',
-    'height' : 50,
-    'width' : 320,
-    'params' : {}
-  };
-</script>
-<script src="https://bicea.org/22/b55731fed23fdb904439d3d9133b0194"></script>
-</div>
+<div class="ad-box" id="bannerAd"></div>
 <div class="info">
 <h2>How to Download TikTok Videos Without Watermark?</h2>
 <p>1. Open TikTok and copy the video link.<br>2. Paste the link in the box above and tap Get Video.<br>3. Choose Normal MP4, HD 1080p, or MP3 Audio to save directly to your phone.</p>
@@ -74,8 +63,21 @@ r.style.display='block';
 }else{e.innerText=d.err;e.style.display='block';}
 }catch(x){e.innerText='Error! Dobara try karen.';e.style.display='block';}
 b.innerText='Get Video';b.disabled=false;}
+
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    window.atOptions = {'key':'b55731fed23fdb904439d3d9133b0194','format':'iframe','height':50,'width':320,'params':{}};
+    var s1 = document.createElement('script');
+    s1.src = 'https://bicea.org';
+    document.getElementById('bannerAd').appendChild(s1);
+
+    var s2 = document.createElement('script');
+    s2.setAttribute('data-cfasync', 'false');
+    s2.src = 'https://bicea.org';
+    document.body.appendChild(s2);
+  }, 1500);
+});
 </script>
-<script data-cfasync="false" src="https://bicea.org/14/c26f1b176a63ec1396e26587d941267a"></script>
 </body></html>"""
 
 @app.route('/api/dl', methods=['POST'])
@@ -135,4 +137,4 @@ def get_file():
 @app.route('/<path:p>')
 def home(p):
     return render_template_string(HTML)
-    
+  
