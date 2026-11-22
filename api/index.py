@@ -1,5 +1,5 @@
-from flask import Flask, request, jsonify, render_template_string
-import yt_dlp
+from flask import Flask, request, jsonify, render_template_string, Response
+import yt_dlp, requests, base64
 
 app = Flask(__name__)
 
@@ -22,7 +22,8 @@ img{width:110px;height:150px;object-fit:cover;border-radius:8px}
 <button id="b" onclick="go()">Get Video</button>
 <div class="err" id="e"></div>
 <div class="res" id="r"><img id="im"><p id="t"></p>
-<a id="v" target="_blank" class="btn" style="background:#00b894">Download Video (No Watermark)</a>
+<a id="v" class="btn" style="background:#00b894">Download Video (No Watermark)</a>
+<a id="m" class="btn" style="background:#6c5ce7">Download MP3 Audio</a>
 </div></div><script>
 async function go(){
 let u=document.getElementById('u').value.trim(),b=document.getElementById('b'),e=document.getElementById('e'),r=document.getElementById('r');
@@ -35,7 +36,8 @@ let d=await res.json();
 if(d.ok){
 document.getElementById('im').src=d.cover||'';
 document.getElementById('t').innerText=d.title||'TikTok Video';
-document.getElementById('v').href=d.play;
+document.getElementById('v').href='/api/file?t=v&u='+d.enc;
+document.getElementById('m').href='/api/file?t=a&u='+d.enc;
 r.style.display='block';
 }else{e.innerText=d.err;e.style.display='block';}
 }catch(x){e.innerText='Error! Dobara try karen.';e.style.display='block';}
@@ -51,16 +53,31 @@ def dl():
         opts = {'quiet': True, 'no_warnings': True, 'format': 'best[ext=mp4]/best'}
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            formats = [f for f in info.get('formats', []) if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and 'watermark' not in f.get('format_id', '').lower()]
-            video_url = formats[-1]['url'] if formats else info.get('url')
+            enc_url = base64.urlsafe_b64encode(url.encode()).decode()
             return jsonify({
                 'ok': True,
                 'title': info.get('title', 'TikTok Video'),
                 'cover': info.get('thumbnail'),
-                'play': video_url
+                'enc': enc_url
             })
     except Exception as ex:
         return jsonify({'ok': False, 'err': f'Error: {str(ex)[:60]}'})
+
+@app.route('/api/file')
+def get_file():
+    t = request.args.get('t', 'v')
+    url = base64.urlsafe_b64decode(request.args.get('u', '').encode()).decode()
+    fmt = 'bestaudio/best' if t == 'a' else 'best[ext=mp4]/best'
+    opts = {'quiet': True, 'no_warnings': True, 'format': fmt}
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        formats = [f for f in info.get('formats', []) if 'watermark' not in f.get('format_id', '').lower()]
+        target = formats[-1] if (t == 'v' and formats) else info
+        media_url = target.get('url')
+        headers = target.get('http_headers', {})
+        r = requests.get(media_url, headers=headers, stream=True, timeout=25)
+        fn, ct = ("tiktok_audio.mp3", "audio/mpeg") if t == 'a' else ("tiktok_video.mp4", "video/mp4")
+        return Response(r.iter_content(65536), content_type=ct, headers={"Content-Disposition": f'attachment; filename="{fn}"'})
 
 @app.route('/', defaults={'p': ''})
 @app.route('/<path:p>')
