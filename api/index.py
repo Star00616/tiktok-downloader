@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, render_template_string, Response
-import requests, re, json
-from urllib.parse import quote, unquote
+import requests, re, json, base64
 
 app = Flask(__name__)
 
@@ -48,20 +47,27 @@ b.innerText='Get Video';b.disabled=false;}
 
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36'
 
+def enc(s):
+    return base64.urlsafe_b64encode(s.encode()).decode()
+
+def dec(s):
+    return base64.urlsafe_b64decode(s.encode()).decode()
+
 @app.route('/api/dl', methods=['POST'])
 def dl():
     url = (request.get_json() or {}).get('url', '').strip()
     s = requests.Session()
     s.headers.update({'User-Agent': UA, 'Referer': 'https://tiktok.com'})
     try:
-        full = s.get(url, allow_redirects=True, timeout=10).url.split('?')[0]
+        full = s.get(url, allow_redirects=True, timeout=10).url.split('?')
     except Exception:
         full = url
     try:
-        tw = requests.get(f"https://tikwm.com{full}", headers={'User-Agent': UA}, timeout=10).json()
+        tw = requests.post("https://tikwm.com", data={'url': full, 'hd': 1}, headers={'User-Agent': UA}, timeout=10).json()
         if tw.get('code') == 0 and tw.get('data'):
             d = tw['data']
-            return jsonify({'ok': True, 'title': d.get('title'), 'cover': d.get('cover'), 'play': d.get('play'), 'music': d.get('music')})
+            v = d.get('hdplay') or d.get('play')
+            return jsonify({'ok': True, 'title': d.get('title'), 'cover': d.get('cover'), 'play': v, 'music': d.get('music')})
     except Exception:
         pass
     try:
@@ -69,14 +75,14 @@ def dl():
         m = re.search(r'<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">(.*?)</script>', pg)
         if m:
             item = json.loads(m.group(1))['__DEFAULT_SCOPE__']['webapp.video-detail']['itemInfo']['itemStruct']
-            v = item['video']['playAddr']
+            v = item['video'].get('downloadAddr') or item['video'].get('playAddr')
             mu = item.get('music', {}).get('playUrl')
             ck = "; ".join([f"{k}={v}" for k, v in s.cookies.get_dict().items()])
             if v:
                 return jsonify({
                     'ok': True, 'title': item.get('desc'), 'cover': item['video']['cover'],
-                    'play': f"/api/st?u={quote(v)}&c={quote(ck)}&t=v",
-                    'music': f"/api/st?u={quote(mu)}&c={quote(ck)}&t=a" if mu else None
+                    'play': f"/api/st?u={enc(v)}&c={enc(ck)}&t=v",
+                    'music': f"/api/st?u={enc(mu)}&c={enc(ck)}&t=a" if mu else None
                 })
     except Exception:
         pass
@@ -84,8 +90,10 @@ def dl():
 
 @app.route('/api/st')
 def st():
-    u, c, t = unquote(request.args.get('u', '')), unquote(request.args.get('c', '')), request.args.get('t', 'v')
+    u, c, t = dec(request.args.get('u', '')), dec(request.args.get('c', '')), request.args.get('t', 'v')
     r = requests.get(u, headers={'User-Agent': UA, 'Referer': 'https://tiktok.com', 'Cookie': c}, stream=True, timeout=20)
+    if r.status_code != 200:
+        return "Video server ne block kiya, dobara Get Video dabayen.", 400
     fn, ct = ("audio.mp3", "audio/mpeg") if t == 'a' else ("video.mp4", "video/mp4")
     return Response(r.iter_content(65536), content_type=ct, headers={"Content-Disposition": f'attachment; filename="{fn}"'})
 
