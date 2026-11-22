@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 HTML = """<!DOCTYPE html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TikTok Downloader</title>
+<title>TikTok HD & MP3 Downloader</title>
 <style>
 body{font-family:sans-serif;background:#121224;color:#fff;display:flex;justify-content:center;padding:20px}
 .box{background:#1e1e36;padding:25px;border-radius:16px;width:100%;max-width:420px;text-align:center}
@@ -22,7 +22,8 @@ img{width:110px;height:150px;object-fit:cover;border-radius:8px}
 <button id="b" onclick="go()">Get Video</button>
 <div class="err" id="e"></div>
 <div class="res" id="r"><img id="im"><p id="t"></p>
-<a id="v" class="btn" style="background:#00b894">Download Video (No Watermark)</a>
+<a id="v" class="btn" style="background:#00b894">Download Normal (No Watermark)</a>
+<a id="h" class="btn" style="background:#0984e3">Download HD Quality (1080p)</a>
 <a id="m" class="btn" style="background:#6c5ce7">Download MP3 Audio</a>
 </div></div><script>
 async function go(){
@@ -37,6 +38,7 @@ if(d.ok){
 document.getElementById('im').src=d.cover||'';
 document.getElementById('t').innerText=d.title||'TikTok Video';
 document.getElementById('v').href='/api/file?t=v&u='+d.enc;
+document.getElementById('h').href='/api/file?t=hd&u='+d.enc;
 document.getElementById('m').href='/api/file?t=a&u='+d.enc;
 r.style.display='block';
 }else{e.innerText=d.err;e.style.display='block';}
@@ -50,7 +52,7 @@ def dl():
     if not url:
         return jsonify({'ok': False, 'err': 'Link khali hai'})
     try:
-        opts = {'quiet': True, 'no_warnings': True, 'format': 'best[ext=mp4]/best'}
+        opts = {'quiet': True, 'no_warnings': True}
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
             enc_url = base64.urlsafe_b64encode(url.encode()).decode()
@@ -67,21 +69,30 @@ def dl():
 def get_file():
     t = request.args.get('t', 'v')
     url = base64.urlsafe_b64decode(request.args.get('u', '').encode()).decode()
-    fmt = 'bestaudio/best' if t == 'a' else 'best[ext=mp4]/best'
-    opts = {'quiet': True, 'no_warnings': True, 'format': fmt}
+    opts = {'quiet': True, 'no_warnings': True}
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
-        formats = [f for f in info.get('formats', []) if 'watermark' not in f.get('format_id', '').lower() and f.get('vcodec') != 'none']
-        target = formats[-1] if (t == 'v' and formats) else info
-        media_url = target.get('url')
-        stream = ydl.urlopen(media_url)
+        if t == 'a':
+            audios = [f for f in info.get('formats', []) if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
+            target = audios[-1] if audios else info
+            fn, ct = "tiktok_audio.mp3", "audio/mpeg"
+        else:
+            vids = [f for f in info.get('formats', []) if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and 'watermark' not in f.get('format_id', '').lower()]
+            vids.sort(key=lambda x: (x.get('height') or 0, x.get('tbr') or 0))
+            if t == 'hd':
+                target = vids[-1] if vids else info
+                fn = "tiktok_HD.mp4"
+            else:
+                target = vids[0] if vids else info
+                fn = "tiktok_normal.mp4"
+            ct = "video/mp4"
+        stream = ydl.urlopen(target.get('url'))
         def generate():
             while True:
                 chunk = stream.read(65536)
                 if not chunk:
                     break
                 yield chunk
-        fn, ct = ("tiktok_audio.mp3", "audio/mpeg") if t == 'a' else ("tiktok_video.mp4", "video/mp4")
         return Response(generate(), content_type=ct, headers={"Content-Disposition": f'attachment; filename="{fn}"'})
 
 @app.route('/', defaults={'p': ''})
