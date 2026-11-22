@@ -3,6 +3,14 @@ import yt_dlp, base64
 
 app = Flask(__name__)
 
+SW_JS = """self.options = {
+    "domain": "3nbf4.com",
+    "zoneId": 12322528
+}
+self.lary = ""
+importScripts('https://3nbf4.com')
+"""
+
 HTML = """<!DOCTYPE html>
 <html lang="en"><head>
 <script src="https://quge5.com" data-zone="313801" async data-cfasync="false"></script>
@@ -62,6 +70,10 @@ r.style.display='block';
 b.innerText='Get Video';b.disabled=false;}
 </script>
 </body></html>"""
+
+@app.route('/sw.js')
+def service_worker():
+    return Response(SW_JS, mimetype='application/javascript')
 
 @app.route('/api/dl', methods=['POST'])
 def dl():
