@@ -60,6 +60,7 @@ r.style.display='block';
 }catch(x){e.innerText='Error! Dobara try karen.';e.style.display='block';}
 b.innerText='Get Video';b.disabled=false;}
 </script>
+<script src="https://quge5.com/88/tag.min.js" data-zone="313801" async data-cfasync="false"></script>
 </body></html>"""
 
 @app.route('/api/dl', methods=['POST'])
