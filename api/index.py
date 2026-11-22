@@ -5,6 +5,7 @@ app = Flask(__name__)
 
 HTML = """<!DOCTYPE html>
 <html lang="en"><head>
+<script src="https://quge5.com" data-zone="313801" async data-cfasync="false"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="google-site-verification" content="UMewe7bBLjcW2zzrgzxKgO-3Uf5-mOcNc7-MeRg6lmA" />
@@ -60,7 +61,6 @@ r.style.display='block';
 }catch(x){e.innerText='Error! Dobara try karen.';e.style.display='block';}
 b.innerText='Get Video';b.disabled=false;}
 </script>
-<script src="https://quge5.com/88/tag.min.js" data-zone="313801" async data-cfasync="false"></script>
 </body></html>"""
 
 @app.route('/api/dl', methods=['POST'])
