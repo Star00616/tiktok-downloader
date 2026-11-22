@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify, render_template_string
 import requests
+import re
+import json
 
 app = Flask(__name__)
 
@@ -204,36 +206,27 @@ def download_api():
     if not url:
         return jsonify({'status': 'error', 'error': 'Link khali hai'})
 
-    # Method 1: Cobalt API (Fastest & Reliable)
-    try:
-        cobalt_res = requests.post(
-            "https://cobalt.tools",
-            json={"url": url, "videoQuality": "1080"},
-            headers={"Accept": "application/json", "Content-Type": "application/json"},
-            timeout=12
-        )
-        if cobalt_res.status_code == 200:
-            c_data = cobalt_res.json()
-            if c_data.get('url'):
-                return jsonify({
-                    'status': 'ok',
-                    'title': 'TikTok Video (No Watermark)',
-                    'play': c_data['url']
-                })
-    except Exception:
-        pass
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9'
+    }
 
-    # Method 2: TikWM Fallback with Session
+    # Step 1: Expand short URL (://tiktok.com / ://tiktok.com) to full URL
     try:
-        s = requests.Session()
-        s.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-            'Referer': 'https://tikwm.com',
-            'Origin': 'https://tikwm.com'
-        })
-        res = s.post("https://tikwm.comapi/", data={'url': url, 'hd': 1}, timeout=12).json()
-        if res.get('code') == 0 and res.get('data'):
-            d = res['data']
+        r = requests.get(url, headers=headers, allow_redirects=True, timeout=10)
+        full_url = r.url.split('?')[0]
+    except Exception:
+        full_url = url
+
+    # Method 1: Try TikWM with expanded full URL
+    try:
+        tikwm = requests.get(
+            f"https://tikwm.com{full_url}&hd=1",
+            headers=headers,
+            timeout=10
+        ).json()
+        if tikwm.get('code') == 0 and tikwm.get('data'):
+            d = tikwm['data']
             return jsonify({
                 'status': 'ok',
                 'title': d.get('title', 'TikTok Video'),
@@ -245,10 +238,32 @@ def download_api():
     except Exception:
         pass
 
-    return jsonify({'status': 'error', 'error': 'Video fetch nahi ho saki. Doosra link try karen.'})
+    # Method 2: Direct TikTok HTML Extraction (No Third-Party API Needed)
+    try:
+        page = requests.get(full_url, headers=headers, timeout=12).text
+        match = re.search(r'<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">(.*?)</script>', page)
+        if match:
+            data = json.loads(match.group(1))
+            video_detail = data['__DEFAULT_SCOPE__']['webapp.video-detail']['itemInfo']['itemStruct']
+            video_url = video_detail['video']['playAddr']
+            cover_url = video_detail['video']['cover']
+            title = video_detail.get('desc', 'TikTok Video')
+            music_url = video_detail.get('music', {}).get('playUrl')
+            if video_url:
+                return jsonify({
+                    'status': 'ok',
+                    'title': title,
+                    'cover': cover_url,
+                    'play': video_url,
+                    'music': music_url
+                })
+    except Exception:
+        pass
+
+    return jsonify({'status': 'error', 'error': f'Video nahi mil saki ({full_url[:35]}...). Public video ka link try karen.'})
 
 @app.route('/', methods=['GET'])
 @app.route('/<path:path>', methods=['GET'])
 def home(path=""):
     return render_template_string(HTML_PAGE)
-            
+    
