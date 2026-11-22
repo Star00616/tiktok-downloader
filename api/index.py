@@ -3,17 +3,9 @@ import yt_dlp, base64
 
 app = Flask(__name__)
 
-SW_JS = """self.options = {
-    "domain": "3nbf4.com",
-    "zoneId": 12322528
-}
-self.lary = ""
-importScripts('https://3nbf4.com')
-"""
-
 HTML = """<!DOCTYPE html>
 <html lang="en"><head>
-<script src="https://quge5.com" data-zone="313801" async data-cfasync="false"></script>
+<script>(function(s){s.dataset.zone='12322648',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="google-site-verification" content="UMewe7bBLjcW2zzrgzxKgO-3Uf5-mOcNc7-MeRg6lmA" />
@@ -70,10 +62,6 @@ r.style.display='block';
 b.innerText='Get Video';b.disabled=false;}
 </script>
 </body></html>"""
-
-@app.route('/sw.js')
-def service_worker():
-    return Response(SW_JS, mimetype='application/javascript')
 
 @app.route('/api/dl', methods=['POST'])
 def dl():
